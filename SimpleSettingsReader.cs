@@ -14,13 +14,23 @@ namespace EKR.Simple.Settings
 	/// </summary>
 	public class SimpleSettingsReader
 	{
-		
+		private String _settingsINI;
 		public String SettingsINI
 		{
 			get{
-				string dir = this.GetType().Assembly.Location;
-				dir = Path.GetDirectoryName(dir);
-				return Path.Combine(dir, "settings.ini");
+				if(String.IsNullOrEmpty(_settingsINI))
+				{
+					string dir = this.GetType().Assembly.Location;
+					dir = Path.GetDirectoryName(dir);
+					_settingsINI = Path.Combine(dir, "settings.ini");
+				}
+				return _settingsINI;
+			}
+			set{
+				if(!String.IsNullOrEmpty(value) && File.Exists(value))
+				{
+					_settingsINI = Path.GetFullPath(value);
+				}
 			}
 		}
 		private Dictionary<string, string> _settings;
@@ -54,6 +64,7 @@ namespace EKR.Simple.Settings
 			try{
 				if(File.Exists(SettingsINI))
 				{
+					this._settings = new Dictionary<string, string>();
 					string contents = "";
 					FileInfo fi = new FileInfo(this.SettingsINI);
 					using(StreamReader sr = fi.OpenText())
