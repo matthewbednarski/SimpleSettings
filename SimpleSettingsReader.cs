@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
 
 namespace EKR.Simple.Settings
 {
@@ -31,6 +33,21 @@ namespace EKR.Simple.Settings
 				{
 					_settingsINI = Path.GetFullPath(value);
 				}
+				else {
+					Console.WriteLine(value + " not exists..");
+				}
+			}
+		}
+		private bool inited;
+		public bool HasSettings
+		{
+			get{
+				inited = this.Settings != null && this.Settings.Count > 0;
+				if(!inited)
+				{
+					this.LoadSettings();
+				}
+				return this.Settings != null && this.Settings.Count > 0;
 			}
 		}
 		private Dictionary<string, string> _settings;
@@ -76,17 +93,17 @@ namespace EKR.Simple.Settings
 						string[] lines = contents.Split(new string[]{System.Environment.NewLine}, StringSplitOptions.None);
 						foreach(string line in lines)
 						{
-							if(!line.StartsWith("#") && !line.StartsWith("["))
+							if(line.IsSettingLine())
 							{
-								KeyValuePair<string, string> kvp = ParseIniLine(line);
+								SettingRow sr = line.ParseIniLine();
+								KeyValuePair<string, string> kvp = new KeyValuePair<string, string>(sr.Setting, sr.Value);
 								if(!string.IsNullOrEmpty(kvp.Key) && !string.IsNullOrEmpty(kvp.Value))
 								{
 									if(!Settings.ContainsKey(kvp.Key))
 									{
 										Settings.Add(kvp.Key, kvp.Value);
 									}else{
-										Settings.Remove(kvp.Key);
-										Settings.Add(kvp.Key, kvp.Value);
+										Settings[kvp.Key] += ";" + kvp.Value;
 									}
 								}
 							}
@@ -98,41 +115,102 @@ namespace EKR.Simple.Settings
 				
 			}
 		}
-		
-		public static string[] GetPair(string piece)
+		public bool SaveSettings()
 		{
-			string[] r = null;
-			var kvp = ParseIniLine(piece);
 			
-			if(!String.IsNullOrEmpty(kvp.Key))
+			//TODO DONE reopen file
+			//TODO DONE load text lines
+			List<String> lines = new List<string>();
+			using(StreamReader sr = File.OpenText(this.SettingsINI))
 			{
-				string k = kvp.Key;
-				string v = kvp.Value;
-				r = new string[]{k, v};
+				while(sr.Peek() >= 0)
+				{
+					lines.Add(sr.ReadLine());
+				}
+			}
+			
+			//TODO DONE find lines with settings already existing
+			var settingLines = lines.Where(xx => xx.IsSettingLine())
+				.Select(xx =>
+				        {
+				        	SettingRow sr =xx.ParseIniLine();
+				        	sr.Row = lines.IndexOf(xx);
+				        	return sr;
+				        });
+			//TODO DONE update already existing settings
+			foreach(SettingRow sr in settingLines)
+			{
+				if(this.Settings.ContainsKey(sr.Setting))
+				{
+					if(!this[sr.Setting].Equals(sr.Value))
+					{
+						sr.Value = this[sr.Setting];
+						//TODO DONE update List<string> lines with new values;
+						lines[sr.Row] = sr.CreateIniLine();
+					}
+				}
+			}
+			
+			
+			//TODO DONE add settings previously not existing
+			var settingKeys = settingLines.Select(xx => xx.Setting);
+			foreach(KeyValuePair<string, string> setting in this.Settings)
+			{
+				if(!settingKeys.Contains(setting.Key))
+				{
+					lines.Add(setting.CreateIniLine());
+				}
+			}
+			
+			//TODO DONE re-write file
+			bool r = false;
+			using(FileStream fs = File.Create(this.SettingsINI))
+			{
+				using(StreamWriter sw = new StreamWriter(fs))
+				{
+					foreach(String line in lines)
+					{
+						sw.WriteLine(line);
+					}
+					r = true;
+				}
 			}
 			return r;
 		}
-		private static KeyValuePair<string, string> ParseIniLine(string line)
-		{
-			KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
-			
-			string[] pieces = line.Split(new string[]{":\t"}, StringSplitOptions.RemoveEmptyEntries);
-			if(pieces.Length == 2)
-			{
-				kvp = new KeyValuePair<string, string>(pieces[0], cleanUpValue(pieces[1]));
-			}
-			return kvp;
-		}
-		private static string cleanUpValue(string toClean)
-		{
-			char[] toRemove = new char[]{'"', '\'', '\t', '\r', '\n', ' '};
-			toClean = toClean.Trim();
-			toClean = toClean.TrimStart(toRemove);
-			toClean = toClean.TrimEnd(toRemove);
-			toClean = toClean.TrimStart(toRemove);
-			toClean = toClean.TrimEnd(toRemove);
-			return toClean;
-		}
+//		public static string[] GetPair(string piece)
+//		{
+//			string[] r = null;
+//			var kvp = ParseIniLine(piece);
+//
+//			if(!String.IsNullOrEmpty(kvp.Key))
+//			{
+//				string k = kvp.Key;
+//				string v = kvp.Value;
+//				r = new string[]{k, v};
+//			}
+//			return r;
+//		}
+//		private static KeyValuePair<string, string> ParseIniLine(string line)
+//		{
+//			KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
+//
+//			string[] pieces = line.Split(new string[]{":\t"}, 2, StringSplitOptions.RemoveEmptyEntries);
+//			if(pieces.Length == 2)
+//			{
+//				kvp = new KeyValuePair<string, string>(pieces[0], cleanUpValue(pieces[1]));
+//			}
+//			return kvp;
+//		}
+//		private static string cleanUpValue(string toClean)
+//		{
+//			char[] toRemove = new char[]{'"', '\'', '\t', '\r', '\n', ' '};
+//			toClean = toClean.Trim();
+//			toClean = toClean.TrimStart(toRemove);
+//			toClean = toClean.TrimEnd(toRemove);
+//			toClean = toClean.TrimStart(toRemove);
+//			toClean = toClean.TrimEnd(toRemove);
+//			return toClean;
+//		}
 		public static List<string> ListSettingParser(string toParse)
 		{
 			List<string> r = new List<string>();
@@ -171,6 +249,69 @@ namespace EKR.Simple.Settings
 		private static int CountOccurences(string haystack, string needle)
 		{
 			return (haystack.Length - haystack.Replace(needle,"").Length) / needle.Length;
+		}
+	}
+	
+	class SettingRow
+	{
+		public int Row {get; set;}
+		public String Setting {get; set;}
+
+		public String Value
+		{
+			get;
+			set;
+		}
+		public String Text
+		{
+			get{
+				return this.Setting + ":\t" + this.Value;
+			}
+		}
+	}
+	static class SettingsExtensions
+	{
+		public static bool IsSettingLine(this string line)
+		{
+			bool r = false;
+			if(line != null && !line.StartsWith("#") && !line.StartsWith("[") && !String.IsNullOrEmpty(line.Trim()))
+			{
+				if(line.Contains(":\t"))
+				{
+					r = true;
+				}
+			}
+			return r;
+		}
+		public static string CreateIniLine(this KeyValuePair<string, string> kvp)
+		{
+			return kvp.Key + ":\t" + kvp.Value;
+		}
+		public static string CreateIniLine(this SettingRow setting)
+		{
+			return setting.Setting + ":\t" + setting.Value;
+		}
+		public static SettingRow ParseIniLine(this string line)
+		{
+			SettingRow sr = new SettingRow();
+			
+			string[] pieces = line.Split(new string[]{":"}, 2, StringSplitOptions.RemoveEmptyEntries);
+			if(pieces.Length == 2)
+			{
+				sr.Setting = pieces[0];
+				sr.Value = cleanUpValue(pieces[1]);
+			}
+			return sr;
+		}
+		private static string cleanUpValue(string toClean)
+		{
+			char[] toRemove = new char[]{'"', '\'', '\t', '\r', '\n', ' '};
+			toClean = toClean.Trim();
+			toClean = toClean.TrimStart(toRemove);
+			toClean = toClean.TrimEnd(toRemove);
+			toClean = toClean.TrimStart(toRemove);
+			toClean = toClean.TrimEnd(toRemove);
+			return toClean;
 		}
 	}
 }
