@@ -16,6 +16,7 @@ namespace EKR.Simple.Settings
 	/// </summary>
 	public class SimpleSettingsReader
 	{
+		public const String MULTI_DELIM = "|__;__|";
 		private String _settingsINI;
 		public String SettingsINI
 		{
@@ -72,6 +73,25 @@ namespace EKR.Simple.Settings
 				}
 			}
 		}
+		public List<String> this[string index, string delim]
+		{
+			get{
+				String t = this[index];
+				if(!String.IsNullOrEmpty(t))
+				{
+					List<String> r = new List<string>();
+					if(t.Contains(delim))
+					{
+						r.AddRange(t.Split(new string[]{ delim }, StringSplitOptions.RemoveEmptyEntries));
+					}else{
+						r.Add(t);
+					}
+					return r;
+				}else{
+					return new List<String>();
+				}
+			}
+		}
 		public SimpleSettingsReader()
 		{
 			this.LoadSettings();
@@ -103,7 +123,7 @@ namespace EKR.Simple.Settings
 									{
 										Settings.Add(kvp.Key, kvp.Value);
 									}else{
-										Settings[kvp.Key] += ";" + kvp.Value;
+										Settings[kvp.Key] += MULTI_DELIM + kvp.Value;
 									}
 								}
 							}
@@ -251,7 +271,7 @@ namespace EKR.Simple.Settings
 			return (haystack.Length - haystack.Replace(needle,"").Length) / needle.Length;
 		}
 	}
-	
+
 	class SettingRow
 	{
 		public int Row {get; set;}
@@ -276,7 +296,7 @@ namespace EKR.Simple.Settings
 			bool r = false;
 			if(line != null && !line.StartsWith("#") && !line.StartsWith("[") && !String.IsNullOrEmpty(line.Trim()))
 			{
-				if(line.Contains(":\t"))
+				if(line.Contains(":"))
 				{
 					r = true;
 				}
