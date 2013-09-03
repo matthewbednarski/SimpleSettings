@@ -6,10 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
+using System.Runtime.CompilerServices;
 
-namespace EKR.Simple.Settings
+namespace Simple.Settings
 {
 	/// <summary>
 	/// Description of SimpleSettingsReader.
@@ -32,6 +32,7 @@ namespace EKR.Simple.Settings
 			set{
 				if(!String.IsNullOrEmpty(value) && File.Exists(value))
 				{
+					this.Settings.Clear();
 					_settingsINI = Path.GetFullPath(value);
 				}
 				else {
@@ -137,9 +138,6 @@ namespace EKR.Simple.Settings
 		}
 		public bool SaveSettings()
 		{
-			
-			//TODO DONE reopen file
-			//TODO DONE load text lines
 			List<String> lines = new List<string>();
 			using(StreamReader sr = File.OpenText(this.SettingsINI))
 			{
@@ -148,16 +146,23 @@ namespace EKR.Simple.Settings
 					lines.Add(sr.ReadLine());
 				}
 			}
-			
-			//TODO DONE find lines with settings already existing
-			var settingLines = lines.Where(xx => xx.IsSettingLine())
-				.Select(xx =>
-				        {
-				        	SettingRow sr =xx.ParseIniLine();
-				        	sr.Row = lines.IndexOf(xx);
-				        	return sr;
-				        });
-			//TODO DONE update already existing settings
+			IList<SettingRow> settingLines = new List<SettingRow>();
+			foreach(string line in lines)
+			{
+				if(line.IsSettingLine())
+				{
+					SettingRow sr =line.ParseIniLine();
+					sr.Row = lines.IndexOf(line);
+					settingLines.Add( sr );
+				}
+			}
+//			var settingLines = lines.Where(xx => xx.IsSettingLine())
+//				.Select(xx =>
+//				        {
+//				        	SettingRow sr =xx.ParseIniLine();
+//				        	sr.Row = lines.IndexOf(xx);
+//				        	return sr;
+//				        });
 			foreach(SettingRow sr in settingLines)
 			{
 				if(this.Settings.ContainsKey(sr.Setting))
@@ -165,15 +170,17 @@ namespace EKR.Simple.Settings
 					if(!this[sr.Setting].Equals(sr.Value))
 					{
 						sr.Value = this[sr.Setting];
-						//TODO DONE update List<string> lines with new values;
 						lines[sr.Row] = sr.CreateIniLine();
 					}
 				}
 			}
 			
-			
-			//TODO DONE add settings previously not existing
-			var settingKeys = settingLines.Select(xx => xx.Setting);
+			IList<string> settingKeys = new List<string>();
+			foreach(SettingRow sr in settingLines)
+			{
+				settingKeys.Add(sr.Setting);
+			}
+//			var settingKeys = settingLines.Select(xx => xx.Setting);
 			foreach(KeyValuePair<string, string> setting in this.Settings)
 			{
 				if(!settingKeys.Contains(setting.Key))
@@ -182,7 +189,6 @@ namespace EKR.Simple.Settings
 				}
 			}
 			
-			//TODO DONE re-write file
 			bool r = false;
 			using(FileStream fs = File.Create(this.SettingsINI))
 			{
@@ -197,40 +203,62 @@ namespace EKR.Simple.Settings
 			}
 			return r;
 		}
-//		public static string[] GetPair(string piece)
-//		{
-//			string[] r = null;
-//			var kvp = ParseIniLine(piece);
-//
-//			if(!String.IsNullOrEmpty(kvp.Key))
-//			{
-//				string k = kvp.Key;
-//				string v = kvp.Value;
-//				r = new string[]{k, v};
-//			}
-//			return r;
-//		}
-//		private static KeyValuePair<string, string> ParseIniLine(string line)
-//		{
-//			KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
-//
-//			string[] pieces = line.Split(new string[]{":\t"}, 2, StringSplitOptions.RemoveEmptyEntries);
-//			if(pieces.Length == 2)
-//			{
-//				kvp = new KeyValuePair<string, string>(pieces[0], cleanUpValue(pieces[1]));
-//			}
-//			return kvp;
-//		}
-//		private static string cleanUpValue(string toClean)
-//		{
-//			char[] toRemove = new char[]{'"', '\'', '\t', '\r', '\n', ' '};
-//			toClean = toClean.Trim();
-//			toClean = toClean.TrimStart(toRemove);
-//			toClean = toClean.TrimEnd(toRemove);
-//			toClean = toClean.TrimStart(toRemove);
-//			toClean = toClean.TrimEnd(toRemove);
-//			return toClean;
-//		}
+		public bool GetBooleanSetting(string key)
+		{
+			return this.GetBooleanSetting(key, false);
+		}
+		public bool GetBooleanSetting(string key, bool default_value)
+		{
+			bool r = default_value;
+			if(!string.IsNullOrEmpty(this[key]))
+			{
+				string val = this[key];
+				r = Convert.ToBoolean(val);
+				if(r == false)
+				{
+					if(val.ToLower().Trim().Equals("1"))
+					{
+						r = true;
+					}else if(val.ToLower().Trim().Equals("t"))
+					{
+						r = true;
+					}
+				}
+					
+			}
+			return r;
+		}
+		public int GetNumericSetting(string key)
+		{
+			return this.GetNumericSetting(key, -1);
+		}
+		public int GetNumericSetting(string key, int default_value)
+		{
+			int r = default_value;
+			if(!string.IsNullOrEmpty(this[key]))
+			{
+				string val = this[key];
+				int tmp = Convert.ToInt32(val);
+				if(tmp != 0)
+				{
+					r  = tmp;
+				}
+			}
+			return r;
+		}
+		
+		public void AddSettings(IDictionary<string, string> settings)
+		{
+			foreach(KeyValuePair<string, string> setting in settings)
+			{
+				if(this.Settings.ContainsKey(setting.Key))
+				{
+					this.Settings[setting.Key] = setting.Value;
+				}else{
+					this.Settings.Add(setting.Key, setting.Value);
+				}
+			}
+		}
 		public static List<string> ListSettingParser(string toParse)
 		{
 			List<string> r = new List<string>();
@@ -270,6 +298,7 @@ namespace EKR.Simple.Settings
 		{
 			return (haystack.Length - haystack.Replace(needle,"").Length) / needle.Length;
 		}
+		
 	}
 
 	class SettingRow

@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 # SharpDevelop 4.2.0.8649-Beta 2
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EKR.Simple.Settings", "EKR.Simple.Settings.csproj", "{DA1C3A39-F99D-4F67-9B5E-29DC008D09F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simple.Settings", "Simple.Settings.csproj", "{DA1C3A39-F99D-4F67-9B5E-29DC008D09F8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
