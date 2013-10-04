@@ -15,9 +15,9 @@ namespace Simple.Settings
 	/// </summary>
 	public interface ISimpleSettingsClient
 	{
-		SimpleSettingsReader Settings{get;}
+		SimpleSettingsReader SettingsReader{get;}
 		IDictionary<String, String> Defaults {get; }
-		void SetDefaults();
+//		void SetDefaults();
 		bool PrintDefaultIni(String out_path);
 	}
 }

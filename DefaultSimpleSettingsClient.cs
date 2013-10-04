@@ -29,7 +29,7 @@ namespace Simple.Settings
 			}
 		}
 		SimpleSettingsReader iniReader;
-		public SimpleSettingsReader Settings {
+		public SimpleSettingsReader SettingsReader {
 			get {
 				if(iniReader == null)
 				{
